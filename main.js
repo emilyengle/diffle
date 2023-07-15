@@ -96,9 +96,13 @@ const $inputRow = assure(document.getElementById("input_row"), HTMLDivElement);
 const $board = assure(document.getElementById("board"), HTMLDivElement);
 let play;
 let stats;
+let mode = "daily"; // 'daily' or 'practice'
 function dailySeed() {
   const now = new Date();
   return now.getDate() + now.getMonth() * 32 + now.getFullYear() * 400;
+}
+function practiceSeed(max = 1000000) {
+  return Math.floor(Math.random() * max);
 }
 function getAnswer(seed) {
   if (seed == 808836) return "differ";
@@ -116,10 +120,12 @@ function getAnswer(seed) {
   return answers[Math.abs(w) % answers.length];
 }
 function save() {
+  if (mode === "practice") return;
   localStorage.setItem("diffle_play", JSON.stringify(play));
   localStorage.setItem("diffle_stats", JSON.stringify(stats));
 }
 function load() {
+  mode = "daily";
   const today = getTodayString();
   const statsString = localStorage.getItem("diffle_stats");
   stats = statsString ? JSON.parse(statsString) : {};
@@ -152,6 +158,29 @@ function load() {
     save();
   }
   showStats();
+}
+function loadPractice() {
+  mode = "practice";
+  const answer = getAnswer(practiceSeed());
+
+  // Clear previous guesses & reset input row
+  while (true) {
+    const child = $board.firstElementChild;
+    if (child.className !== "guess") break;
+    $board.removeChild(child);
+  }
+  $inputRow.innerHTML = "";
+  $inputRow.classList.add("empty");
+  $inputRow.style.display = "";
+  hideResult();
+
+  play = {
+    date: getTodayString(),
+    guess: "",
+    history: [],
+    answer,
+    letter_count: 0,
+  };
 }
 function insertLetter(letter) {
   const letter_element = document.createElement("div");
@@ -217,7 +246,7 @@ function enter() {
     myAlert("not in word list");
     return;
   }
-  if (play.history.length == 0) {
+  if (play.history.length == 0 && mode === "daily") {
     stats.played++;
     showStats();
   }
@@ -230,11 +259,13 @@ function enter() {
     else if (play.history.length <= 6) myAlert("excellent!");
     else if (play.history.length <= 10) myAlert("great!");
     else myAlert("good!");
-    stats.won++;
-    stats.total_guess_count += play.history.length;
-    stats.total_letter_count += play.letter_count;
+    if (mode === "daily") {
+      stats.won++;
+      stats.total_guess_count += play.history.length;
+      stats.total_letter_count += play.letter_count;
+    }
     showResult();
-    showStats();
+    if (mode === "daily") showStats();
   }
   play.guess = "";
   save();
@@ -254,6 +285,10 @@ function showResult() {
     document.getElementById("words_used_label"),
     HTMLSpanElement
   ).innerHTML = play.history.length <= 1 ? "Word<br>Used" : "Words<br>Used";
+}
+function hideResult() {
+  document.getElementById("result").style.display = "none";
+  document.getElementById("timer_container").style.display = "none";
 }
 function showStats() {
   assure(document.getElementById("stats_played"), HTMLDivElement).textContent =
@@ -278,7 +313,8 @@ function myAlert(message) {
   setTimeout(() => alert.classList.remove("visible"), 1500);
 }
 function share() {
-  const title = "Diffle " + play.date + "\n";
+  const title =
+    mode === "daily" ? `Diffle ${play.date}\n` : "Diffle Practice\n";
   const result =
     play.history.length +
     (play.history.length <= 1 ? " word / " : " words / ") +
@@ -308,10 +344,6 @@ function share() {
     .catch(function (error) {
       myAlert(error.message);
     });
-}
-function reset() {
-  // TODO
-  myAlert("shuffling to new");
 }
 document.addEventListener("keydown", (ev) => {
   if (ev.key == "Backspace") inputBackspace();
@@ -363,6 +395,6 @@ assure(
 assure(
   document.getElementById("practice_button"),
   HTMLButtonElement
-).addEventListener("click", reset);
+).addEventListener("click", loadPractice);
 load();
 setInterval(updateTimer, 1000);
