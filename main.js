@@ -173,6 +173,14 @@ function loadPractice() {
   $inputRow.classList.add("empty");
   $inputRow.style.display = "";
   hideResult();
+  // Clear keyboard
+  Array.from("qwertyuiopasdfghjklzxcvbnm").forEach((letter) => {
+    const keyboard_button = assure(
+      document.getElementById("keyboard_" + letter),
+      HTMLButtonElement
+    );
+    keyboard_button.className = "";
+  });
 
   play = {
     date: getTodayString(),
